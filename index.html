@@ -4,166 +4,368 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>구글 시트 연동 풀스택 웹앱</title>
-  <style>
-    body {
-      font-family: 'Malgun Gothic', sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 20px;
-      line-height: 1.6;
-    }
-
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    input,
-    textarea {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-
-    button {
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-      width: 100%;
-    }
-
-    button:hover {
-      background-color: #1d4ed8;
-    }
-
-    button:disabled {
-      background-color: #93c5fd;
-      cursor: not-allowed;
-    }
-
-    .item {
-      border-bottom: 1px solid #eee;
-      padding: 10px 0;
-    }
-
-    .item:last-child {
-      border-bottom: none;
-    }
-
-    .time {
-      font-size: 12px;
-      color: #666;
-    }
-  </style>
+  <title>탄현 임대관리 통합 시스템</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
-<body>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-16">
 
-  <h2>📋 구글 시트 실시간 데이터 연동</h2>
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-3.5 h-6 bg-blue-700 rounded-sm"></div>
+        <h1 class="text-lg font-bold tracking-tight text-slate-900">탄현 임대관리 시스템</h1>
+      </div>
+      <div class="flex space-x-2">
+        <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileUpload(this)" />
+        <button id="uploadBtn" onclick="document.getElementById('csvFileInput').click()"
+          class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition shadow-sm">
+          📤 통장업로드
+        </button>
+        <button onclick="loadData()"
+          class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">🔄</button>
+      </div>
+    </div>
+  </header>
 
-  <!-- 데이터 입력 폼 -->
-  <div class="card">
-    <h3>새 데이터 등록</h3>
-    <input type="text" id="nameInput" placeholder="이름을 입력하세요" required>
-    <textarea id="msgInput" rows="3" placeholder="남길 내용을 입력하세요" required></textarea>
-    <button id="submitBtn" onclick="sendData()">구글 시트에 저장하기</button>
+  <main class="max-w-6xl mx-auto px-4 mt-6">
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><span
+          class="text-xs font-semibold text-slate-400">총 관리 호실</span>
+        <div class="mt-1 text-2xl font-bold" id="totalRooms">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><span
+          class="text-xs font-semibold text-slate-400">임대 현황</span>
+        <div class="mt-1 text-2xl font-bold text-blue-600" id="occupiedRooms">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><span
+          class="text-xs font-semibold text-slate-400">월 약정 임대료</span>
+        <div class="mt-1 text-2xl font-bold" id="totalMonthlyRent">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><span
+          class="text-xs font-semibold text-slate-400">총 연체/과부족액</span>
+        <div class="mt-1 text-2xl font-bold" id="totalUnpaid">0</div>
+      </div>
+    </section>
+
+    <div class="flex space-x-2 mb-4">
+      <button onclick="filterStatus('all')" id="btn-all"
+        class="px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-blue-600 text-white">전체</button>
+      <button onclick="filterStatus('unpaid')" id="btn-unpaid"
+        class="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-white border">연체/부족</button>
+      <button onclick="filterStatus('occupied')" id="btn-occupied"
+        class="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-white border">임대중</button>
+    </div>
+
+    <!-- 2열 리스트(그리드) 뷰 영역 -->
+    <div id="roomList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="col-span-full py-16 text-center text-slate-400 bg-white rounded-xl border border-slate-200">로딩 중...
+      </div>
+    </div>
+  </main>
+
+  <!-- 웹카드 모달 팝업 -->
+  <div id="cardModal"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+      <div class="flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 to-white relative">
+        <div id="captureArea" class="p-5">
+          <div class="flex justify-between items-start border-b border-slate-200 pb-3 mb-4">
+            <div>
+              <span id="modalType" class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">-</span>
+              <h2 id="modalRoom" class="text-2xl font-extrabold text-slate-900 mt-1">-호</h2>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">임차인</span>
+              <span id="modalTenant" class="text-sm font-bold text-slate-800">-</span>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-sm bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
+            <div class="flex justify-between items-center"><span class="text-slate-500">보증금</span><span
+                id="modalDeposit" class="font-bold text-slate-700">-</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">미납액</span><span
+                id="modalDepositUnpaid">-</span></div>
+            <div class="border-t border-slate-100 my-1"></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">월세</span><span id="modalRent"
+                class="font-bold text-slate-700">-</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-600 font-bold">누적미납액</span><span
+                id="modalUnpaid" class="text-base font-extrabold">-</span></div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">최근 납부 현황 (최대 5건)</h3>
+            <div id="modalHistoryList" class="space-y-2 text-xs"></div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-200 text-base font-extrabold text-slate-800 text-center">
+            기준일자: <span id="modalDate"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex space-x-2">
+        <button onclick="captureWebCard()"
+          class="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow flex items-center justify-center space-x-1">
+          <span>📷 카톡용 이미지 캡처</span>
+        </button>
+        <button onclick="closeModal()"
+          class="px-4 py-2.5 bg-white text-slate-600 font-semibold border rounded-xl text-sm">닫기</button>
+      </div>
+    </div>
   </div>
 
-  <!-- 데이터 목록 출력 영역 -->
-  <div class="card">
-    <h3>저장된 목록 <button onclick="loadData()"
-        style="width: auto; padding: 4px 10px; font-size: 12px; float: right;">새로고침</button></h3>
-    <div id="listContainer">데이터를 불러오는 중...</div>
+  <!-- 이미지 캡처 미리보기 팝업 -->
+  <div id="previewModal"
+    class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+        <h3 class="font-bold text-slate-800">캡처 완료</h3>
+        <button onclick="closePreview()"
+          class="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none">&times;</button>
+      </div>
+      <div class="p-4 bg-slate-200 flex justify-center overflow-y-auto max-h-[55vh]">
+        <img id="previewImage" src="" alt="캡처된 이미지" class="max-w-full h-auto shadow-md border border-slate-300">
+      </div>
+      <div class="p-4 bg-white text-center space-y-4">
+        <p class="text-sm text-blue-600 font-bold bg-blue-50 p-2.5 rounded-lg border border-blue-100">
+          💡 이미지를 길게 누르거나 우클릭하여<br>'이미지 복사' 후 카톡에 붙여넣으세요.
+        </p>
+        <div class="flex space-x-2">
+          <button onclick="downloadCapturedImage()"
+            class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm border border-slate-200">파일로
+            저장</button>
+          <button onclick="closePreview()"
+            class="flex-1 py-2 bg-slate-800 text-white font-bold rounded-xl text-sm shadow">닫기</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    // ★ [필수 수정] 아래 따옴표 안에 1단계에서 복사한 구글 앱 스크립트 웹 앱 URL을 붙여넣으세요!
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw71baVH4fnj0oVVdvDCO3b7kyunWRfC_FjGFKXy4IcF1YNs-Kam_aUW9lhNXIr0FjZFw/exec";
+    // ★ [필수 수정] 아래 따옴표 안에 구글 앱 스크립트 웹 앱 배포 URL을 넣어주세요!
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby2S3Ci-lEmxHUgkXu7gqZMdo0XMKt3RQmlZjqdULgjR27HhBfs2Xf5dED7zZRmA2PCLA/exec";
 
-    // 페이지가 열릴 때 자동으로 목록 불러오기
+    let allRooms = [];
+    let currentFilter = 'all';
+    let capturedDataUrl = "";
+
     window.onload = loadData;
 
-    // 1. 구글 시트에서 데이터 읽어오기 (GET 요청)
+    // 1. 대시보드 데이터 불러오기 (fetch GET 변환)
     async function loadData() {
-      const container = document.getElementById("listContainer");
-      container.innerHTML = "데이터를 불러오는 중...";
-
+      document.getElementById('roomList').innerHTML = '<div class="col-span-full py-16 text-center text-slate-400 bg-white rounded-xl border border-slate-200">데이터를 불러오는 중...</div>';
       try {
-        const response = await fetch(GAS_WEB_APP_URL);
+        const response = await fetch(`${GAS_WEB_APP_URL}?action=getDashboardData`);
         const result = await response.json();
-
         if (result.status === "success") {
-          if (result.data.length === 0) {
-            container.innerHTML = "<p>등록된 데이터가 없습니다.</p>";
-            return;
-          }
-          // 최신 글이 위로 오도록 역순 정렬 후 화면에 그리기
-          container.innerHTML = result.data.reverse().map(item => `
-            <div class="item">
-              <strong>${item.name}</strong> <span class="time">(${new Date(item.timestamp).toLocaleString()})</span>
-              <div>${item.message}</div>
-            </div>
-          `).join("");
+          renderDashboard(result.data);
+        } else {
+          alert("데이터 조회 실패: " + result.message);
         }
       } catch (error) {
-        container.innerHTML = "<p style='color:red;'>데이터를 불러오지 못했습니다. URL 설정을 확인하세요.</p>";
         console.error(error);
+        document.getElementById('roomList').innerHTML = '<div class="col-span-full py-16 text-center text-red-500 bg-white rounded-xl border border-red-200">서버 연결 실패: GAS_WEB_APP_URL 설정과 앱 스크립트 배포 상태를 확인하세요.</div>';
       }
     }
 
-    // 2. 구글 시트로 데이터 보내기 (POST 요청)
-    async function sendData() {
-      const name = document.getElementById("nameInput").value.trim();
-      const message = document.getElementById("msgInput").value.trim();
-      const btn = document.getElementById("submitBtn");
+    function renderDashboard(data) {
+      allRooms = data || [];
+      let tot = allRooms.length, occ = 0, rent = 0, unpaid = 0;
 
-      if (!name || !message) {
-        alert("이름과 내용을 모두 입력해 주세요.");
-        return;
-      }
+      allRooms.forEach(r => {
+        if (r.status === '임대중') occ++;
+        rent += parseInt(String(r.monthlyRent).replace(/,/g, '').trim()) || 0;
+        unpaid += parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
+      });
 
-      btn.disabled = true;
-      btn.innerText = "저장 중...";
+      document.getElementById('totalRooms').innerText = tot + ' 개실';
+      document.getElementById('occupiedRooms').innerText = occ + ' / 공실 ' + (tot - occ);
+      document.getElementById('totalMonthlyRent').innerText = rent.toLocaleString() + ' 원';
+      let unp = document.getElementById('totalUnpaid');
+      unp.innerText = unpaid.toLocaleString() + ' 원';
+      unp.className = unpaid < 0 ? 'mt-1 text-2xl font-bold text-red-600' : 'mt-1 text-2xl font-bold text-slate-800';
+      applyFilter();
+    }
+
+    function filterStatus(status) {
+      currentFilter = status;
+      ['all', 'unpaid', 'occupied'].forEach(k => {
+        document.getElementById('btn-' + k).className = (k === status)
+          ? "px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-blue-600 text-white"
+          : "px-3.5 py-1.5 rounded-lg text-sm font-medium bg-white border text-slate-600";
+      });
+      applyFilter();
+    }
+
+    function applyFilter() {
+      let f = allRooms.filter(r => {
+        if (currentFilter === 'occupied') return r.status === '임대중';
+        if (currentFilter === 'unpaid') return (parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0) < 0;
+        return true;
+      });
+
+      document.getElementById('roomList').innerHTML = f.map(r => {
+        let dTarget = parseInt(String(r.depositTarget).replace(/,/g, '').trim()) || 0;
+        let dPaid = parseInt(String(r.depositPaid).replace(/,/g, '').trim()) || 0;
+        let dUnpaid = dTarget - dPaid;
+        let dUnpaidStr = dUnpaid > 0 ? `<span class="text-red-600 font-bold">${dUnpaid.toLocaleString()}원</span>` : `<span class="text-slate-500">0원</span>`;
+
+        let uNum = parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
+        let uClass = uNum < 0 ? 'text-red-600 font-bold' : 'text-slate-800 font-bold';
+        let statusColor = r.status === '임대중' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200';
+
+        return `
+          <div onclick="openWebCard('${r.room}')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-4">
+              <div class="flex items-center space-x-2">
+                <span class="text-xl font-extrabold text-slate-900">${r.room}호</span>
+                <span class="text-[10px] font-semibold border ${statusColor} px-1.5 py-0.5 rounded w-max">${r.status}</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold text-slate-800 text-sm block">${r.tenant || '(공실)'}</span>
+                <span class="text-[10px] text-slate-400">입주: ${r.moveInDate || '-'}</span>
+              </div>
+            </div>
+            
+            <div class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
+              <div class="flex justify-between">
+                <div class="flex space-x-2"><span class="text-slate-400">보증금</span><span class="font-semibold text-slate-700">${dPaid.toLocaleString()}원</span></div>
+                <div class="flex space-x-2"><span class="text-slate-400">미납액</span><span>${dUnpaidStr}</span></div>
+              </div>
+              <div class="border-t border-slate-200 my-1"></div>
+              <div class="flex justify-between">
+                <div class="flex space-x-2 items-center"><span class="text-slate-400 text-xs">약정월세</span><span class="font-semibold text-slate-700">${r.monthlyRent}원</span></div>
+                <div class="flex space-x-2 items-center"><span class="text-slate-500 font-bold text-xs">누적미납액</span><span class="${uClass}">${r.unpaid}원</span></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 2. 웹카드 오픈 및 최근 납부 내역 불러오기 (fetch GET 변환)
+    async function openWebCard(roomNo) {
+      let r = allRooms.find(x => String(x.room) === String(roomNo));
+      if (!r) return;
+
+      let dTarget = parseInt(String(r.depositTarget).replace(/,/g, '').trim()) || 0;
+      let dPaid = parseInt(String(r.depositPaid).replace(/,/g, '').trim()) || 0;
+      let dUnpaid = dTarget - dPaid;
+      let uNum = parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
+
+      document.getElementById('modalRoom').innerText = r.room + '호';
+      document.getElementById('modalType').innerText = r.type || '주택';
+      document.getElementById('modalTenant').innerText = r.tenant || '(공실)';
+
+      document.getElementById('modalDeposit').innerText = dPaid.toLocaleString() + '원';
+      let mDepUnpaid = document.getElementById('modalDepositUnpaid');
+      mDepUnpaid.innerText = dUnpaid.toLocaleString() + '원';
+      mDepUnpaid.className = dUnpaid > 0 ? "font-bold text-red-600" : "font-semibold text-slate-700";
+
+      document.getElementById('modalRent').innerText = r.monthlyRent + '원';
+      let mUnpaid = document.getElementById('modalUnpaid');
+      mUnpaid.innerText = r.unpaid + '원';
+      mUnpaid.className = uNum < 0 ? "text-base font-extrabold text-red-600" : "text-base font-extrabold text-slate-800";
+
+      document.getElementById('modalDate').innerText = new Date().toISOString().slice(0, 10);
+
+      let histContainer = document.getElementById('modalHistoryList');
+      histContainer.innerHTML = '<div class="py-4 text-center text-slate-400">납부 내역 불러오는 중...</div>';
+      document.getElementById('cardModal').classList.remove('hidden');
 
       try {
-        // 구글 앱 스크립트 CORS 정책 회피를 위해 text/plain 헤더 사용
-        const response = await fetch(GAS_WEB_APP_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-          },
-          body: JSON.stringify({ name: name, message: message })
-        });
-
+        const response = await fetch(`${GAS_WEB_APP_URL}?action=getRecentHistory&room=${encodeURIComponent(r.room)}`);
         const result = await response.json();
-        if (result.status === "success") {
-          document.getElementById("nameInput").value = "";
-          document.getElementById("msgInput").value = "";
-          loadData(); // 저장 후 목록 새로고침
-        } else {
-          alert("저장 실패: " + result.message);
+        const history = result.data || [];
+
+        if (history.length === 0) {
+          histContainer.innerHTML = '<div class="py-2 text-center text-slate-400">납부 내역이 없습니다.</div>';
+          return;
         }
+
+        histContainer.innerHTML = history.map(h => {
+          let diff = parseInt(String(h.diffAmt).replace(/,/g, '').trim()) || 0;
+          let diffColor = diff < 0 ? 'text-red-600' : (diff > 0 ? 'text-blue-600' : 'text-slate-800');
+          let payAmtNum = parseInt(String(h.payAmt).replace(/,/g, '').trim()) || 0;
+
+          return `
+            <div class="bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm flex flex-col leading-tight">
+              <div class="flex justify-between items-center">
+                <span class="text-base font-extrabold text-slate-800">${h.ym} <span class="text-sm font-semibold text-slate-500 ml-1">(${h.payDate || '미입금'})</span></span>
+                <span class="text-base font-extrabold text-slate-800">${payAmtNum.toLocaleString()}원</span>
+              </div>
+              <div class="flex justify-between items-center mt-1 border-t border-slate-50 pt-1">
+                <span class="text-base font-bold text-slate-600">당월과부족</span>
+                <span class="text-base font-extrabold ${diffColor}">${diff > 0 ? '+' : ''}${diff.toLocaleString()}원</span>
+              </div>
+            </div>`;
+        }).join('');
       } catch (error) {
-        alert("통신 오류가 발생했습니다.");
         console.error(error);
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "구글 시트에 저장하기";
+        histContainer.innerHTML = '<div class="py-2 text-center text-red-500">납부 내역을 불러오지 못했습니다.</div>';
       }
+    }
+
+    function closeModal() { document.getElementById('cardModal').classList.add('hidden'); }
+    function closePreview() { document.getElementById('previewModal').classList.add('hidden'); }
+
+    function captureWebCard() {
+      let captureArea = document.getElementById('captureArea');
+      html2canvas(captureArea, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+        capturedDataUrl = canvas.toDataURL('image/png');
+        document.getElementById('previewImage').src = capturedDataUrl;
+        document.getElementById('previewModal').classList.remove('hidden');
+      });
+    }
+
+    function downloadCapturedImage() {
+      if (!capturedDataUrl) return;
+      let roomName = document.getElementById('modalRoom').innerText;
+      let link = document.createElement('a');
+      link.download = `임대현황_${roomName}_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = capturedDataUrl;
+      link.click();
+    }
+
+    // 3. 통장 CSV 업로드 처리 (fetch POST 변환)
+    function handleFileUpload(input) {
+      if (!input.files || input.files.length === 0) return;
+      let btn = document.getElementById('uploadBtn');
+      let originalText = btn.innerText;
+      btn.innerText = '⏳ 처리 중...'; btn.disabled = true;
+
+      let reader = new FileReader();
+      reader.onload = async function (e) {
+        try {
+          const response = await fetch(GAS_WEB_APP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "processCSVUpload",
+              csvText: e.target.result
+            })
+          });
+          const result = await response.json();
+          if (result.status === "success") {
+            alert(result.message);
+            loadData(); // 업로드 완료 후 화면 자동 새로고침
+          } else {
+            alert("오류: " + result.message);
+          }
+        } catch (err) {
+          alert("통신 오류: " + err);
+        } finally {
+          btn.innerText = originalText;
+          btn.disabled = false;
+          input.value = "";
+        }
+      };
+      reader.readAsText(input.files[0], 'euc-kr');
     }
   </script>
-
 </body>
 
 </html>
