@@ -94,20 +94,21 @@
             </div>
             <div class="text-right">
               <span class="text-xs text-slate-400 block">임차인</span>
-              <span id="modalTenant" class="text-sm font-bold text-slate-800">-</span>
+              <span id="modalTenant" class="text-base font-bold text-slate-800 block">-</span>
+              <span id="modalMoveInPayType" class="text-xs font-medium text-slate-500 block mt-0.5">-</span>
             </div>
           </div>
 
-          <div class="space-y-3 text-sm bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
-            <div class="flex justify-between items-center"><span class="text-slate-500">보증금</span><span
-                id="modalDeposit" class="font-bold text-slate-700">-</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-500">미납액</span><span
-                id="modalDepositUnpaid">-</span></div>
+          <div class="space-y-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
+            <div class="flex justify-between items-center"><span class="text-xs font-medium text-slate-500">보증금</span><span
+                id="modalDeposit" class="text-sm font-bold text-slate-700">-</span></div>
+            <div class="flex justify-between items-center"><span class="text-xs font-medium text-slate-500">미납액</span><span
+                id="modalDepositUnpaid" class="text-sm">-</span></div>
             <div class="border-t border-slate-100 my-1"></div>
-            <div class="flex justify-between items-center"><span class="text-slate-500">월세</span><span id="modalRent"
-                class="font-bold text-slate-700">-</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-600 font-bold">누적미납액</span><span
-                id="modalUnpaid" class="text-base font-extrabold">-</span></div>
+            <div class="flex justify-between items-center"><span class="text-xs font-medium text-slate-500">월세</span><span id="modalRent"
+                class="text-sm font-bold text-slate-700">-</span></div>
+            <div class="flex justify-between items-center"><span class="text-sm font-bold text-slate-700">누적미납액</span><span
+                id="modalUnpaid" class="text-lg font-extrabold">-</span></div>
           </div>
 
           <div>
@@ -115,7 +116,7 @@
             <div id="modalHistoryList" class="space-y-2 text-xs"></div>
           </div>
 
-          <div class="mt-4 pt-4 border-t border-slate-200 text-base font-extrabold text-slate-800 text-center">
+          <div class="mt-4 pt-4 border-t border-slate-200 text-sm font-bold text-slate-700 text-center">
             기준일자: <span id="modalDate"></span>
           </div>
         </div>
@@ -289,6 +290,16 @@
       applyFilter();
     }
 
+    function formatMoveInAndPayType(r) {
+      const moveIn = `입주: ${r.moveInDate || '-'}`;
+      const payType = String(r.payType || '').trim();
+      if (payType === '선불' || payType === '후불') {
+        const payInfo = r.payDay ? `${payType}(${r.payDay}일)` : payType;
+        return `${moveIn} · ${payInfo}`;
+      }
+      return moveIn;
+    }
+
     function applyFilter() {
       let f = allRooms.filter(r => {
         if (currentFilter === 'occupied') return r.status === '임대중';
@@ -300,34 +311,34 @@
         let dTarget = parseInt(String(r.depositTarget).replace(/,/g, '').trim()) || 0;
         let dPaid = parseInt(String(r.depositPaid).replace(/,/g, '').trim()) || 0;
         let dUnpaid = dTarget - dPaid;
-        let dUnpaidStr = dUnpaid > 0 ? `<span class="text-red-600 font-bold">${dUnpaid.toLocaleString()}원</span>` : `<span class="text-slate-500">0원</span>`;
+        let dUnpaidStr = dUnpaid > 0 ? `<span class="text-sm text-red-600 font-bold">${dUnpaid.toLocaleString()}원</span>` : `<span class="text-sm font-semibold text-slate-500">0원</span>`;
 
         let uNum = parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
-        let uClass = uNum < 0 ? 'text-red-600 font-bold' : 'text-slate-800 font-bold';
+        let uClass = uNum < 0 ? 'text-base text-red-600 font-extrabold' : 'text-base text-slate-800 font-extrabold';
         let statusColor = r.status === '임대중' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200';
 
         return `
           <div onclick="openWebCard('${r.room}')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition flex flex-col justify-between">
-            <div class="flex justify-between items-start mb-4">
+            <div class="flex justify-between items-start mb-3">
               <div class="flex items-center space-x-2">
                 <span class="text-xl font-extrabold text-slate-900">${r.room}호</span>
-                <span class="text-[10px] font-semibold border ${statusColor} px-1.5 py-0.5 rounded w-max">${r.status}</span>
+                <span class="text-xs font-semibold border ${statusColor} px-2 py-0.5 rounded w-max">${r.status}</span>
               </div>
               <div class="text-right">
-                <span class="font-bold text-slate-800 text-sm block">${r.tenant || '(공실)'}</span>
-                <span class="text-[10px] text-slate-400">입주: ${r.moveInDate || '-'}</span>
+                <span class="font-bold text-slate-800 text-base block">${r.tenant || '(공실)'}</span>
+                <span class="text-xs font-medium text-slate-500">${formatMoveInAndPayType(r)}</span>
               </div>
             </div>
             
-            <div class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
-              <div class="flex justify-between">
-                <div class="flex space-x-2"><span class="text-slate-400">보증금</span><span class="font-semibold text-slate-700">${dPaid.toLocaleString()}원</span></div>
-                <div class="flex space-x-2"><span class="text-slate-400">미납액</span><span>${dUnpaidStr}</span></div>
+            <div class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <div class="flex justify-between items-center">
+                <div class="flex space-x-2 items-center"><span class="text-xs font-medium text-slate-500">보증금</span><span class="text-sm font-semibold text-slate-700">${dPaid.toLocaleString()}원</span></div>
+                <div class="flex space-x-2 items-center"><span class="text-xs font-medium text-slate-500">미납액</span><span>${dUnpaidStr}</span></div>
               </div>
               <div class="border-t border-slate-200 my-1"></div>
-              <div class="flex justify-between">
-                <div class="flex space-x-2 items-center"><span class="text-slate-400 text-xs">약정월세</span><span class="font-semibold text-slate-700">${r.monthlyRent}원</span></div>
-                <div class="flex space-x-2 items-center"><span class="text-slate-500 font-bold text-xs">누적미납액</span><span class="${uClass}">${r.unpaid}원</span></div>
+              <div class="flex justify-between items-center">
+                <div class="flex space-x-2 items-center"><span class="text-xs font-medium text-slate-500">약정월세</span><span class="text-sm font-semibold text-slate-700">${r.monthlyRent}원</span></div>
+                <div class="flex space-x-2 items-center"><span class="text-xs font-bold text-slate-600">누적미납액</span><span class="${uClass}">${r.unpaid}원</span></div>
               </div>
             </div>
           </div>
@@ -353,16 +364,17 @@
         ? 'text-xs px-2 py-0.5 rounded border font-semibold bg-emerald-50 text-emerald-600 border-emerald-100'
         : 'text-xs px-2 py-0.5 rounded border font-semibold bg-slate-100 text-slate-500 border-slate-200';
       document.getElementById('modalTenant').innerText = r.tenant || '(공실)';
+      document.getElementById('modalMoveInPayType').innerText = formatMoveInAndPayType(r);
 
       document.getElementById('modalDeposit').innerText = dPaid.toLocaleString() + '원';
       let mDepUnpaid = document.getElementById('modalDepositUnpaid');
       mDepUnpaid.innerText = dUnpaid.toLocaleString() + '원';
-      mDepUnpaid.className = dUnpaid > 0 ? "font-bold text-red-600" : "font-semibold text-slate-700";
+      mDepUnpaid.className = dUnpaid > 0 ? "text-sm font-bold text-red-600" : "text-sm font-semibold text-slate-700";
 
       document.getElementById('modalRent').innerText = r.monthlyRent + '원';
       let mUnpaid = document.getElementById('modalUnpaid');
       mUnpaid.innerText = r.unpaid + '원';
-      mUnpaid.className = uNum < 0 ? "text-base font-extrabold text-red-600" : "text-base font-extrabold text-slate-800";
+      mUnpaid.className = uNum < 0 ? "text-lg font-extrabold text-red-600" : "text-lg font-extrabold text-slate-800";
 
       const baseDate = getBaseDate();
       document.getElementById('modalDate').innerText = `${baseDate} 24:00`;
@@ -389,12 +401,12 @@
           return `
             <div class="bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm flex flex-col leading-tight">
               <div class="flex justify-between items-center">
-                <span class="text-base font-extrabold text-slate-800">${h.ym} <span class="text-sm font-semibold text-slate-500 ml-1">(${h.payDate || '미입금'})</span></span>
-                <span class="text-base font-extrabold text-slate-800">${payAmtNum.toLocaleString()}원</span>
+                <span class="text-sm font-bold text-slate-800">${h.ym} <span class="text-xs font-medium text-slate-500 ml-1">(${h.payDate || '미입금'})</span></span>
+                <span class="text-sm font-bold text-slate-800">${payAmtNum.toLocaleString()}원</span>
               </div>
               <div class="flex justify-between items-center mt-1 border-t border-slate-50 pt-1">
-                <span class="text-base font-bold text-slate-600">당월과부족</span>
-                <span class="text-base font-extrabold ${diffColor}">${diff > 0 ? '+' : ''}${diff.toLocaleString()}원</span>
+                <span class="text-xs font-semibold text-slate-500">당월과부족</span>
+                <span class="text-sm font-extrabold ${diffColor}">${diff > 0 ? '+' : ''}${diff.toLocaleString()}원</span>
               </div>
             </div>`;
         }).join('');
