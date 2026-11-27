@@ -14,9 +14,16 @@
 
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
     <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2 sm:space-x-3">
         <div class="w-3.5 h-6 bg-blue-700 rounded-sm"></div>
-        <h1 class="text-lg font-bold tracking-tight text-slate-900">탄현 임대관리 시스템</h1>
+        <h1 class="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap">탄현 임대관리 시스템</h1>
+        <div class="flex items-center space-x-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+          <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">기준일자</span>
+          <input type="text" id="baseDateInput" maxlength="10" placeholder="YYYY-MM-DD"
+            class="w-24 bg-transparent text-xs font-bold text-slate-800 focus:outline-none text-center"
+            onchange="onBaseDateChange()" onkeydown="if(event.key==='Enter'){this.blur();}" />
+          <span class="text-[11px] text-slate-400 whitespace-nowrap">24시</span>
+        </div>
       </div>
       <div class="flex items-center space-x-2">
         <span id="lastBankDate"
@@ -79,7 +86,10 @@
         <div id="captureArea" class="p-5">
           <div class="flex justify-between items-start border-b border-slate-200 pb-3 mb-4">
             <div>
-              <span id="modalType" class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">-</span>
+              <div class="flex items-center space-x-1.5">
+                <span id="modalType" class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">-</span>
+                <span id="modalStatus" class="text-xs px-2 py-0.5 rounded border font-semibold">-</span>
+              </div>
               <h2 id="modalRoom" class="text-2xl font-extrabold text-slate-900 mt-1">-호</h2>
             </div>
             <div class="text-right">
@@ -157,7 +167,48 @@
     let currentFilter = 'all';
     let capturedDataUrl = "";
 
+    function getTodayLocalStr() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function normalizeBaseDate(val) {
+      const m = String(val || '').trim().match(/^(\d{4})[-./]?(\d{1,2})[-./]?(\d{1,2})$/);
+      if (!m) return null;
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10);
+      const da = parseInt(m[3], 10);
+      if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+      return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+    }
+
+    function getBaseDate() {
+      const input = document.getElementById('baseDateInput');
+      const norm = normalizeBaseDate(input ? input.value : '');
+      return norm || getTodayLocalStr();
+    }
+
+    function onBaseDateChange() {
+      const input = document.getElementById('baseDateInput');
+      const norm = normalizeBaseDate(input ? input.value : '');
+      if (norm) {
+        input.value = norm;
+        loadData();
+      } else {
+        alert('날짜 형식을 YYYY-MM-DD 로 입력해주세요. (예: 2026-11-27)');
+        input.value = getTodayLocalStr();
+        loadData();
+      }
+    }
+
     window.onload = function () {
+      const input = document.getElementById('baseDateInput');
+      if (input && !input.value) {
+        input.value = getTodayLocalStr();
+      }
       updateLastBankDate(localStorage.getItem('lastBankDate') || '-');
       loadData();
     };
@@ -187,9 +238,10 @@
 
     // 1. 대시보드 데이터 불러오기 (fetch GET 변환)
     async function loadData() {
+      const baseDate = getBaseDate();
       document.getElementById('roomList').innerHTML = '<div class="col-span-full py-16 text-center text-slate-400 bg-white rounded-xl border border-slate-200">데이터를 불러오는 중...</div>';
       try {
-        const response = await fetch(`${GAS_WEB_APP_URL}?action=getDashboardData`);
+        const response = await fetch(`${GAS_WEB_APP_URL}?action=getDashboardData&baseDate=${encodeURIComponent(baseDate)}`);
         const result = await response.json();
         if (result.status === "success") {
           if (result.lastBankDate) {
@@ -295,6 +347,11 @@
 
       document.getElementById('modalRoom').innerText = r.room + '호';
       document.getElementById('modalType').innerText = r.type || '주택';
+      const mStatus = document.getElementById('modalStatus');
+      mStatus.innerText = r.status || '-';
+      mStatus.className = r.status === '임대중'
+        ? 'text-xs px-2 py-0.5 rounded border font-semibold bg-emerald-50 text-emerald-600 border-emerald-100'
+        : 'text-xs px-2 py-0.5 rounded border font-semibold bg-slate-100 text-slate-500 border-slate-200';
       document.getElementById('modalTenant').innerText = r.tenant || '(공실)';
 
       document.getElementById('modalDeposit').innerText = dPaid.toLocaleString() + '원';
@@ -307,14 +364,15 @@
       mUnpaid.innerText = r.unpaid + '원';
       mUnpaid.className = uNum < 0 ? "text-base font-extrabold text-red-600" : "text-base font-extrabold text-slate-800";
 
-      document.getElementById('modalDate').innerText = new Date().toISOString().slice(0, 10);
+      const baseDate = getBaseDate();
+      document.getElementById('modalDate').innerText = `${baseDate} 24:00`;
 
       let histContainer = document.getElementById('modalHistoryList');
       histContainer.innerHTML = '<div class="py-4 text-center text-slate-400">납부 내역 불러오는 중...</div>';
       document.getElementById('cardModal').classList.remove('hidden');
 
       try {
-        const response = await fetch(`${GAS_WEB_APP_URL}?action=getRecentHistory&room=${encodeURIComponent(r.room)}`);
+        const response = await fetch(`${GAS_WEB_APP_URL}?action=getRecentHistory&room=${encodeURIComponent(r.room)}&baseDate=${encodeURIComponent(baseDate)}`);
         const result = await response.json();
         const history = result.data || [];
 
