@@ -366,6 +366,24 @@
       link.click();
     }
 
+    function decodeCSVBuffer(buffer) {
+      const bytes = new Uint8Array(buffer);
+      // UTF-8 BOM 확인
+      if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        return new TextDecoder('utf-8').decode(bytes).replace(/^\uFEFF/, '');
+      }
+      // UTF-8 엄격 디코딩 시도 후 한글 포함 여부 확인
+      try {
+        const utf8Text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        if (/[가-힣]/.test(utf8Text)) {
+          return utf8Text.replace(/^\uFEFF/, '');
+        }
+      } catch (e) {
+        // UTF-8이 아님 -> EUC-KR로 폴백
+      }
+      return new TextDecoder('euc-kr').decode(bytes);
+    }
+
     // 3. 통장 CSV 업로드 처리 (fetch POST 변환)
     function handleFileUpload(input) {
       if (!input.files || input.files.length === 0) return;
@@ -376,17 +394,18 @@
       let reader = new FileReader();
       reader.onload = async function (e) {
         try {
+          const csvText = decodeCSVBuffer(e.target.result);
           const response = await fetch(GAS_WEB_APP_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
               action: "processCSVUpload",
-              csvText: e.target.result
+              csvText: csvText
             })
           });
           const result = await response.json();
           if (result.status === "success") {
-            const latestDate = result.lastBankDate || extractLatestDateFromCSV(e.target.result);
+            const latestDate = result.lastBankDate || extractLatestDateFromCSV(csvText);
             if (latestDate) {
               localStorage.setItem('lastBankDate', latestDate);
               updateLastBankDate(latestDate);
@@ -404,7 +423,7 @@
           input.value = "";
         }
       };
-      reader.readAsText(input.files[0], 'euc-kr');
+      reader.readAsArrayBuffer(input.files[0]);
     }
   </script>
 </body>
