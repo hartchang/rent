@@ -310,8 +310,8 @@
       document.getElementById('roomList').innerHTML = f.map(r => {
         let dTarget = parseInt(String(r.depositTarget).replace(/,/g, '').trim()) || 0;
         let dPaid = parseInt(String(r.depositPaid).replace(/,/g, '').trim()) || 0;
-        let dUnpaid = dTarget - dPaid;
-        let dUnpaidStr = dUnpaid > 0 ? `<span class="text-sm text-red-600 font-bold">${dUnpaid.toLocaleString()}원</span>` : `<span class="text-sm font-semibold text-slate-500">0원</span>`;
+        let dDiff = dPaid - dTarget;
+        let dUnpaidStr = dDiff < 0 ? `<span class="text-sm text-red-600 font-bold">${dDiff.toLocaleString()}원</span>` : `<span class="text-sm font-semibold text-slate-500">${dDiff.toLocaleString()}원</span>`;
 
         let uNum = parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
         let uClass = uNum < 0 ? 'text-base text-red-600 font-extrabold' : 'text-base text-slate-800 font-extrabold';
@@ -353,7 +353,7 @@
 
       let dTarget = parseInt(String(r.depositTarget).replace(/,/g, '').trim()) || 0;
       let dPaid = parseInt(String(r.depositPaid).replace(/,/g, '').trim()) || 0;
-      let dUnpaid = dTarget - dPaid;
+      let dDiff = dPaid - dTarget;
       let uNum = parseInt(String(r.unpaid).replace(/,/g, '').trim()) || 0;
 
       document.getElementById('modalRoom').innerText = r.room + '호';
@@ -368,8 +368,8 @@
 
       document.getElementById('modalDeposit').innerText = dPaid.toLocaleString() + '원';
       let mDepUnpaid = document.getElementById('modalDepositUnpaid');
-      mDepUnpaid.innerText = dUnpaid.toLocaleString() + '원';
-      mDepUnpaid.className = dUnpaid > 0 ? "text-sm font-bold text-red-600" : "text-sm font-semibold text-slate-700";
+      mDepUnpaid.innerText = dDiff.toLocaleString() + '원';
+      mDepUnpaid.className = dDiff < 0 ? "text-sm font-bold text-red-600" : "text-sm font-semibold text-slate-700";
 
       document.getElementById('modalRent').innerText = r.monthlyRent + '원';
       let mUnpaid = document.getElementById('modalUnpaid');
