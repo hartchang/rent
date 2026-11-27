@@ -290,6 +290,12 @@
       applyFilter();
     }
 
+    function formatTenantName(tenant) {
+      const name = String(tenant || '').trim();
+      if (!name || name === '(공실)') return '(공실)';
+      return `${name} 씨`;
+    }
+
     function formatMoveInAndPayType(r) {
       const moveIn = `입주: ${r.moveInDate || '-'}`;
       const payType = String(r.payType || '').trim();
@@ -325,7 +331,7 @@
                 <span class="text-xs font-semibold border ${statusColor} px-2 py-0.5 rounded w-max">${r.status}</span>
               </div>
               <div class="text-right">
-                <span class="font-bold text-slate-800 text-base block">${r.tenant || '(공실)'}</span>
+                <span class="font-bold text-slate-800 text-base block">${formatTenantName(r.tenant)}</span>
                 <span class="text-xs font-medium text-slate-500">${formatMoveInAndPayType(r)}</span>
               </div>
             </div>
@@ -363,7 +369,7 @@
       mStatus.className = r.status === '임대중'
         ? 'text-xs px-2 py-0.5 rounded border font-semibold bg-emerald-50 text-emerald-600 border-emerald-100'
         : 'text-xs px-2 py-0.5 rounded border font-semibold bg-slate-100 text-slate-500 border-slate-200';
-      document.getElementById('modalTenant').innerText = r.tenant || '(공실)';
+      document.getElementById('modalTenant').innerText = formatTenantName(r.tenant);
       document.getElementById('modalMoveInPayType').innerText = formatMoveInAndPayType(r);
 
       document.getElementById('modalDeposit').innerText = dPaid.toLocaleString() + '원';
