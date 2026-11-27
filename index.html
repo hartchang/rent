@@ -7,6 +7,7 @@
   <title>탄현 임대관리 통합 시스템</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body class="bg-slate-50 min-h-screen text-slate-800 pb-16">
@@ -22,7 +23,7 @@
           class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap">
           최종통장: -
         </span>
-        <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileUpload(this)" />
+        <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleFileUpload(this)" />
         <button id="uploadBtn" onclick="document.getElementById('csvFileInput').click()"
           class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition shadow-sm whitespace-nowrap">
           📤 통장업로드
@@ -384,9 +385,27 @@
       return new TextDecoder('euc-kr').decode(bytes);
     }
 
-    // 3. 통장 CSV 업로드 처리 (fetch POST 변환)
+    function parseUploadedFileToCSV(buffer, fileName) {
+      const bytes = new Uint8Array(buffer);
+      const isZipXlsx = bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4B; // PK (.xlsx)
+      const isOleXls = bytes.length >= 4 && bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0; // .xls
+      const isExcelExt = /\.(xlsx|xls)$/i.test(fileName || '');
+
+      if (isZipXlsx || isOleXls || isExcelExt) {
+        if (typeof XLSX === 'undefined') {
+          throw new Error('엑셀 변환 라이브러리(XLSX)를 불러오지 못했습니다.');
+        }
+        const wb = XLSX.read(bytes, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        return XLSX.utils.sheet_to_csv(wb.Sheets[firstSheetName]);
+      }
+      return decodeCSVBuffer(buffer);
+    }
+
+    // 3. 통장 CSV/엑셀 업로드 처리 (fetch POST 변환)
     function handleFileUpload(input) {
       if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
       let btn = document.getElementById('uploadBtn');
       let originalText = btn.innerText;
       btn.innerText = '⏳ 처리 중...'; btn.disabled = true;
@@ -394,7 +413,7 @@
       let reader = new FileReader();
       reader.onload = async function (e) {
         try {
-          const csvText = decodeCSVBuffer(e.target.result);
+          const csvText = parseUploadedFileToCSV(e.target.result, file.name);
           const response = await fetch(GAS_WEB_APP_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
